@@ -37,16 +37,23 @@ def _valuation(pb):
     return f"Premium Valuation ({pb}x P/B)"
 
 
-def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True) -> dict:
+def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True, fast_mode: bool = False) -> dict:
     symbol = symbol.upper().strip()
-    tfs = mtf.run_all(symbol)
+    tfs = mtf.run_all(symbol, selected_tfs=["1W", "1D", "60M", "15M"] if fast_mode else None)
     daily = tfs.get("1D")
     if not daily or daily["df"] is None or len(daily["df"]) < 30:
         return {"error": f"'{symbol}' ka daily data nahi mil saka. Ticker check karein (e.g. OGDC, SYS, LUCK, ENGRO)."}
 
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        qf, ff = ex.submit(data.fetch_quote, symbol), ex.submit(data.fetch_fundamentals, symbol)
-        quote, fund = qf.result(), ff.result()
+    now = data.now_pkt()
+    session_open = data.is_session_open(now)
+    quote, fund = {}, {}
+
+    if not fast_mode:
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            qf, ff = ex.submit(data.fetch_quote, symbol), ex.submit(data.fetch_fundamentals, symbol)
+            quote, fund = qf.result() or {}, ff.result() or {}
+    elif session_open:
+        quote = data.fetch_quote(symbol) or {}
 
     df = daily["df"]
     now = data.now_pkt()
@@ -187,6 +194,7 @@ def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True) -> dict:
 
     ema50, ema200 = round(float(last["ema50"]), 2), round(float(last["ema200"]), 2)
     chart_path = ""
+    tf_for_chart = chart_tf or "1D"
     if chart_tf:
         tf_for_chart = chart_tf if tfs.get(chart_tf) and tfs[chart_tf]["df"] is not None else "1D"
         chart_path = generate_candlestick_chart(symbol, tfs[tf_for_chart]["df"], tf_for_chart,

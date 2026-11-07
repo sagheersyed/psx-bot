@@ -631,11 +631,13 @@ def _analyze_single_scrip(item: Dict[str, Any], current_month: int) -> Optional[
         upper_wick = high - max(price, float(latest.get("open", price)))
         upper_wick_ratio = upper_wick / candle_range
 
-        # Determine Syndicate / Game Phase (Scaled for Micro & Low Float Realities)
-        if change_pct >= 7.0:
+        # Determine Syndicate / Game Phase (Scaled for Micro & Low Float Realities - 10% / Rs. 1.00 Circuit Rule)
+        min_lock_gain = max(price * 0.095, 0.95) # 10% or Rs. 1.00 circuit limit
+        price_gain = price - float(latest.get("open", price))
+        if change_pct >= 9.5 or (price <= 12.0 and price_gain >= 0.95):
             phase = "🚀 UPPER CIRCUIT LOCK"
             phase_code = "UPPER_LOCK"
-            insight = "Supply cornered; locked at upper circuit. Continuous session mein retail entry mushkil hoti hai, pre-open 9:15 AM limit order se follow hota hai."
+            insight = "Supply cornered; locked at 10% upper circuit. Continuous session mein retail entry mushkil hoti hai, pre-open 9:15 AM limit order se follow hota hai."
         
         elif float_turnover >= 8.0 or (vol_surge_x >= 2.5 and float_turnover >= 1.8):
             if upper_wick_ratio >= 0.45 and change_pct < 2.0:

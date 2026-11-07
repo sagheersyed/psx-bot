@@ -139,6 +139,15 @@ def api_low_float_seasonality():
     return jsonify(backtest_stock_seasonality(sym))
 
 
+@app.route("/api/intraday/radar")
+def api_intraday_radar():
+    try:
+        from psx.intraday_engine import scan_intraday_radar
+        return jsonify(scan_intraday_radar())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/chart/<symbol>/<tf>")
 @app.route("/chart/<symbol>")
 def chart(symbol, tf="1D"):
@@ -175,6 +184,8 @@ if __name__ == "__main__":
             from psx.reports import generate_post_market_report, generate_pre_market_report
             generate_post_market_report()
             generate_pre_market_report()
+            from psx.intraday_engine import scan_intraday_radar
+            scan_intraday_radar()
             print("⚡ All Institutional terminal caches pre-warmed (<0.05s response time)!")
         except Exception as e:
             print("Prewarm notice:", e)

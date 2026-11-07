@@ -10,6 +10,12 @@ import pandas as pd
 
 import config
 
+try:
+    from . import candle_store
+    candle_store.init_db()
+except Exception:
+    pass
+
 _cache: dict = {}
 _lock = threading.Lock()
 
@@ -58,21 +64,7 @@ def _clean_candles(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _fetch_history_raw(symbol: str, resolution: str, days: int) -> pd.DataFrame | None:
-    # If weekly, monthly, or yearly, fetch daily candles and resample with institutional precision
-    if resolution in ("W", "MO", "M", "Y"):
-        df_d = _fetch_history_raw(symbol, "D", days=max(days, 1200))
-        if df_d is None or len(df_d) == 0:
-            return None
-        try:
-            rule = "W-FRI" if resolution == "W" else ("ME" if resolution in ("MO", "M") else "YE")
-            resampled = df_d.resample(rule).agg({
-                "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"
-            }).dropna()
-            return _clean_candles(resampled) if len(resampled) else None
-        except Exception:
-            return None
-
+def _fetch_scs_http(symbol: str, resolution: str, days: int) -> pd.DataFrame | None:
     now = int(time.time())
     url = (f"https://chart.scstrade.com/history?symbol={symbol}"
            f"&resolution={resolution}&from={now - days * 86400}&to={now}")
@@ -99,6 +91,30 @@ def _fetch_history_raw(symbol: str, resolution: str, days: int) -> pd.DataFrame 
         return df if len(df) else None
     except Exception:
         return None
+
+
+def _fetch_history_raw(symbol: str, resolution: str, days: int) -> pd.DataFrame | None:
+    # If daily, use the persistent intelligent candle store
+    if resolution == "D":
+        from . import candle_store
+        return candle_store.get_daily_candles_smart(symbol, days=days, fetch_raw_func=_fetch_scs_http)
+
+    # If weekly, monthly, or yearly, fetch daily candles and resample with institutional precision
+    if resolution in ("W", "MO", "M", "Y"):
+        df_d = _fetch_history_raw(symbol, "D", days=max(days, 1200))
+        if df_d is None or len(df_d) == 0:
+            return None
+        try:
+            rule = "W-FRI" if resolution == "W" else ("ME" if resolution in ("MO", "M") else "YE")
+            resampled = df_d.resample(rule).agg({
+                "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"
+            }).dropna()
+            return _clean_candles(resampled) if len(resampled) else None
+        except Exception:
+            return None
+
+    # Intraday resolutions ("1", "5", "15", "30", "60")
+    return _fetch_scs_http(symbol, resolution, days)
 
 
 def fetch_history(symbol: str, resolution: str = "D", days: int = 400) -> pd.DataFrame | None:

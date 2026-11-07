@@ -34,11 +34,15 @@ def scan_market(symbols: list = None, force_refresh: bool = False) -> dict:
 
     def _eval(sym):
         try:
-            r = analyzer.analyze_stock(sym, chart_tf=None, log=False)
+            r = analyzer.analyze_stock(sym, chart_tf=None, log=False, fast_mode=True)
             if r and not r.get("error"):
                 return r
+            if r and r.get("error"):
+                print(f"[SCREENER] {sym} returned error: {r.get('error')}")
         except Exception as e:
-            pass
+            import traceback
+            print(f"[SCREENER] {sym} exception: {e}")
+            traceback.print_exc()
         return None
 
     with ThreadPoolExecutor(max_workers=8) as ex:

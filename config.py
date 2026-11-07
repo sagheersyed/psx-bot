@@ -9,13 +9,14 @@ load_dotenv(BASE_DIR / ".env")
 DATA_DIR = BASE_DIR / "data"
 CHARTS_DIR = DATA_DIR / "charts"
 DB_PATH = DATA_DIR / "journal.db"
+CANDLES_DB_PATH = DATA_DIR / "candles.db"
 for _p in (DATA_DIR, CHARTS_DIR):
     _p.mkdir(parents=True, exist_ok=True)
 
 TZ = "Asia/Karachi"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-CIRCUIT_PCT = float(os.getenv("PSX_CIRCUIT_PCT", "7.5"))
+CIRCUIT_PCT = float(os.getenv("PSX_CIRCUIT_PCT", "10.0"))
 MIN_AVG_VOLUME = float(os.getenv("MIN_AVG_VOLUME", "50000"))
 
 # PSX market hours (Mon-Fri, PKT). Friday ka break approx hai.

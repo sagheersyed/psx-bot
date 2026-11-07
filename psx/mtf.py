@@ -53,10 +53,11 @@ def analyze_timeframe(tf: dict, symbol: str, df=None) -> dict:
     return base
 
 
-def run_all(symbol: str) -> dict:
+def run_all(symbol: str, selected_tfs: list = None) -> dict:
     out = {}
+    target_tfs = [tf for tf in config.TIMEFRAMES if (selected_tfs is None or tf["name"] in selected_tfs)]
     with ThreadPoolExecutor(max_workers=6) as ex:
-        futs = {tf["name"]: ex.submit(analyze_timeframe, tf, symbol) for tf in config.TIMEFRAMES}
+        futs = {tf["name"]: ex.submit(analyze_timeframe, tf, symbol) for tf in target_tfs}
         for name, f in futs.items():
             try:
                 out[name] = f.result()
