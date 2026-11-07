@@ -1,0 +1,9 @@
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+mplfinance>=0.12.10b0
+flask>=3.0
+python-dotenv>=1.0
+beautifulsoup4>=4.12
+# optional (book value fallback). Bot yfinance ke baghair bhi chalta hai:
+yfinance>=0.2

@@ -1,0 +1,44 @@
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Python Caches & Compiled Bytecode
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js Dependencies & Logs
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# WhatsApp Authentication Sessions (Sensitive Credentials)
+auth_session/
+*/auth_session/
+
+# Application Runtime Logs, PIDs & Databases
+*.log
+data/*.log
+data/*.pid
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Generated Charts (Keep directory tracked via .gitkeep)
+data/charts/*.png
+!data/charts/.gitkeep
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tmp
