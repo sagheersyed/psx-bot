@@ -1,6 +1,10 @@
 """Flask dashboard. Chalayein: python web/app.py"""
 import os
 import sys
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 import webbrowser
 from pathlib import Path
 from threading import Timer
@@ -10,6 +14,8 @@ from flask import Flask, request, jsonify, send_file, render_template  # noqa: E
 
 import config  # noqa: E402
 from psx import data, journal  # noqa: E402
+from psx.cache_engine import cache  # noqa: E402
+from psx.smart_worker import start_smart_worker, get_worker_status  # noqa: E402
 from psx.analyzer import analyze_stock  # noqa: E402
 from psx.charts import generate_candlestick_chart  # noqa: E402
 from psx.screener import scan_market  # noqa: E402
@@ -55,15 +61,28 @@ def api_analyze():
 @app.route("/api/scan")
 def api_scan():
     force = request.args.get("refresh", "0") == "1"
-    return jsonify(scan_market(force_refresh=force))
+    if not force:
+        cached = cache.get_json("psx:screener")
+        if cached:
+            return jsonify(cached)
+    res = scan_market(force_refresh=force)
+    if res and "error" not in res:
+        cache.set_json("psx:screener", res, ttl=180)
+    return jsonify(res)
 
 
 @app.route("/api/low_float")
 def api_low_float():
     try:
-        from psx.low_float_analyzer import analyze_low_float_stocks
         force = request.args.get("refresh", "0") == "1"
-        return jsonify(analyze_low_float_stocks(force_refresh=force))
+        if not force:
+            cached = cache.get_json("psx:low_float")
+            if cached:
+                return jsonify(cached)
+        from psx.low_float_analyzer import analyze_low_float_stocks
+        res = analyze_low_float_stocks(force_refresh=force)
+        cache.set_json("psx:low_float", res, ttl=180)
+        return jsonify(res)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -111,25 +130,43 @@ def api_test_alert():
 
 @app.route("/api/sector_rotation")
 def api_sector_rotation():
+    force = bool(int(request.args.get("refresh", 0)))
+    if not force:
+        cached = cache.get_json("psx:sector_rotation")
+        if cached:
+            return jsonify(cached)
     from psx.sector_rotation import get_sector_rotation
-    refresh = bool(int(request.args.get("refresh", 0)))
-    return jsonify(get_sector_rotation(force_refresh=refresh))
+    res = get_sector_rotation(force_refresh=force)
+    cache.set_json("psx:sector_rotation", res, ttl=90)
+    return jsonify(res)
 
 
 @app.route("/api/reports/eod")
 def api_reports_eod():
-    from psx.reports import generate_post_market_report
     broadcast = bool(int(request.args.get("broadcast", 0)))
     refresh = bool(int(request.args.get("refresh", 0)))
-    return jsonify(generate_post_market_report(broadcast=broadcast, force_refresh=refresh))
+    if not refresh and not broadcast:
+        cached = cache.get_json("psx:reports:eod")
+        if cached:
+            return jsonify(cached)
+    from psx.reports import generate_post_market_report
+    res = generate_post_market_report(broadcast=broadcast, force_refresh=refresh)
+    cache.set_json("psx:reports:eod", res, ttl=600)
+    return jsonify(res)
 
 
 @app.route("/api/reports/premarket")
 def api_reports_premarket():
-    from psx.reports import generate_pre_market_report
     broadcast = bool(int(request.args.get("broadcast", 0)))
     refresh = bool(int(request.args.get("refresh", 0)))
-    return jsonify(generate_pre_market_report(broadcast=broadcast, force_refresh=refresh))
+    if not refresh and not broadcast:
+        cached = cache.get_json("psx:reports:premarket")
+        if cached:
+            return jsonify(cached)
+    from psx.reports import generate_pre_market_report
+    res = generate_pre_market_report(broadcast=broadcast, force_refresh=refresh)
+    cache.set_json("psx:reports:premarket", res, ttl=600)
+    return jsonify(res)
 
 
 @app.route("/api/low_float/seasonality")
@@ -142,10 +179,79 @@ def api_low_float_seasonality():
 @app.route("/api/intraday/radar")
 def api_intraday_radar():
     try:
+        force = bool(int(request.args.get("refresh", 0)))
+        if not force:
+            cached = cache.get_json("psx:intraday:radar")
+            if cached:
+                return jsonify(cached)
         from psx.intraday_engine import scan_intraday_radar
-        return jsonify(scan_intraday_radar())
+        res = scan_intraday_radar(force_refresh=force)
+        cache.set_json("psx:intraday:radar", res, ttl=45)
+        return jsonify(res)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/worker/status")
+def api_worker_status():
+    return jsonify(get_worker_status())
+
+
+@app.route("/api/candles/<symbol>/<tf>")
+@app.route("/api/candles/<symbol>")
+def api_candles(symbol, tf="1D"):
+    symbol, tf = symbol.upper().strip(), tf.upper().strip()
+    if not _valid_symbol(symbol) or tf not in TF_BY_NAME:
+        return jsonify({"error": "Invalid symbol or timeframe"}), 400
+
+    cache_key = f"psx:candles:{symbol}:{tf}"
+    cached = cache.get_json(cache_key)
+    if cached:
+        return jsonify(cached)
+
+    cfg = TF_BY_NAME[tf]
+    df = data.fetch_history(symbol, cfg["res"], cfg["days"])
+    if df is None or len(df) < 5:
+        return jsonify({"error": f"No candle history for {symbol}"}), 404
+
+    is_intraday = tf in ("60M", "30M", "15M", "5M", "1M")
+    candles = []
+    volumes = []
+    for idx, row in df.iterrows():
+        t_val = int(idx.timestamp()) if is_intraday else idx.strftime("%Y-%m-%d")
+        c_open, c_high, c_low, c_close = float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"])
+        c_vol = float(row.get("volume", 0))
+
+        candles.append({
+            "time": t_val,
+            "open": round(c_open, 2),
+            "high": round(c_high, 2),
+            "low": round(c_low, 2),
+            "close": round(c_close, 2)
+        })
+        volumes.append({
+            "time": t_val,
+            "value": round(c_vol, 0),
+            "color": "rgba(0, 192, 135, 0.45)" if c_close >= c_open else "rgba(255, 56, 96, 0.45)"
+        })
+
+    from psx.smc import analyze_smc
+    smc_data = analyze_smc(df, float(df["close"].iloc[-1]))
+
+    payload = {
+        "symbol": symbol,
+        "tf": tf,
+        "candles": candles,
+        "volumes": volumes,
+        "current_price": float(df["close"].iloc[-1]),
+        "smc": {
+            "bias": smc_data.get("smc_bias"),
+            "structure": smc_data.get("structure"),
+            "order_blocks": smc_data.get("order_blocks", [])[:3]
+        }
+    }
+    cache.set_json(cache_key, payload, ttl=30)
+    return jsonify(payload)
 
 
 @app.route("/chart/<symbol>/<tf>")
@@ -171,26 +277,9 @@ if __name__ == "__main__":
     print(f"🚀 PSX Terminal: http://127.0.0.1:{port}  (host={host})")
     start_eagle_eye(poll_interval=90)
     
-    # Pre-warm low float, sector rotation, screener and daily reports in background
-    from threading import Thread
-    def _prewarm_cache():
-        try:
-            from psx.low_float_analyzer import analyze_low_float_stocks
-            analyze_low_float_stocks()
-            from psx.sector_rotation import get_sector_rotation
-            get_sector_rotation()
-            from psx.screener import scan_market
-            scan_market()
-            from psx.reports import generate_post_market_report, generate_pre_market_report
-            generate_post_market_report()
-            generate_pre_market_report()
-            from psx.intraday_engine import scan_intraday_radar
-            scan_intraday_radar()
-            print("⚡ All Institutional terminal caches pre-warmed (<0.05s response time)!")
-        except Exception as e:
-            print("Prewarm notice:", e)
-
-    Thread(target=_prewarm_cache, daemon=True).start()
+    # Start the Decoupled Background Smart Worker (Serving 6,000+ users via Redis/RAM)
+    start_smart_worker()
+    print("⚡ [SMART WORKER] Decoupled In-Memory Streaming Engine Activated!")
     
     if host == "127.0.0.1":
         Timer(1.2, lambda: webbrowser.open_new(f"http://127.0.0.1:{port}")).start()

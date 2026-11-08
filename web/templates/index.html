@@ -6,6 +6,7 @@
     <title>PSX Smart AI Terminal - Institutional 6-TF Matrix & SMC Radar</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -72,6 +73,10 @@
             </button>
             <span class="flex items-center gap-1.5 text-emerald-400 bg-dark-800 px-3 py-1.5 rounded-lg border border-gray-800">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> PSX MARKET FEED LIVE
+            </span>
+            <span id="workerStatusBadge" class="hidden sm:flex items-center gap-1.5 text-cyan-300 bg-cyan-950/60 px-3 py-1.5 rounded-lg border border-cyan-800">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span id="workerStatusText">SMART WORKER (<1ms RAM)</span>
             </span>
         </div>
     </header>
@@ -312,11 +317,13 @@
                     </div>
                 </div>
 
-                <!-- Candlestick Chart View -->
-                <div class="relative bg-dark-950 rounded-xl overflow-hidden border border-gray-800/80 flex items-center justify-center min-h-[350px]">
-                    <img id="chartImage" src="" alt="PSX SMC Chart" class="w-full h-auto object-contain max-h-[550px] transition duration-300">
-                    <div id="chartLoading" class="absolute inset-0 bg-dark-950/80 flex items-center justify-center hidden">
+                <!-- Candlestick Chart View (Interactive TradingView Lightweight Engine) -->
+                <div class="relative bg-dark-950 rounded-xl overflow-hidden border border-gray-800/80 min-h-[460px]">
+                    <div id="tvChartContainer" class="w-full h-[460px]"></div>
+                    <img id="chartImage" src="" alt="PSX SMC Chart" class="w-full h-auto object-contain max-h-[550px] transition duration-300 hidden">
+                    <div id="chartLoading" class="absolute inset-0 bg-dark-950/80 flex flex-col items-center justify-center space-y-2 hidden z-20">
                         <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-xs font-mono text-emerald-400">Streaming Candles from Decoupled RAM Cache...</span>
                     </div>
                 </div>
             </div>
@@ -1438,20 +1445,90 @@
             } catch (e) {}
         }
 
-        function updateChart() {
-            const chartImg = document.getElementById('chartImage');
+        let tvChart = null;
+        let tvCandleSeries = null;
+        let tvVolumeSeries = null;
+
+        async function updateChart() {
+            const container = document.getElementById('tvChartContainer');
             const chartLoading = document.getElementById('chartLoading');
-            chartLoading.classList.remove('hidden');
-            
-            const newImg = new Image();
-            newImg.src = `/chart/${currentSymbol}/${currentChartTF}?t=${new Date().getTime()}`;
-            newImg.onload = () => {
-                chartImg.src = newImg.src;
-                chartLoading.classList.add('hidden');
-            };
-            newImg.onerror = () => {
-                chartLoading.classList.add('hidden');
-            };
+            if (chartLoading) chartLoading.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/candles/${currentSymbol}/${currentChartTF}`);
+                const data = await res.json();
+
+                if (!data || !data.candles || data.candles.length === 0) {
+                    const chartImg = document.getElementById('chartImage');
+                    if (chartImg) {
+                        chartImg.src = `/chart/${currentSymbol}/${currentChartTF}?t=${Date.now()}`;
+                        chartImg.classList.remove('hidden');
+                        if (container) container.classList.add('hidden');
+                    }
+                    return;
+                }
+
+                const chartImg = document.getElementById('chartImage');
+                if (chartImg) chartImg.classList.add('hidden');
+                if (container) container.classList.remove('hidden');
+
+                if (!tvChart && window.LightweightCharts && container) {
+                    tvChart = LightweightCharts.createChart(container, {
+                        width: container.clientWidth || 800,
+                        height: 460,
+                        layout: {
+                            background: { color: '#07090e' },
+                            textColor: '#94a3b8',
+                        },
+                        grid: {
+                            vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
+                            horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
+                        },
+                        crosshair: {
+                            mode: LightweightCharts.CrosshairMode.Normal,
+                        },
+                        rightPriceScale: {
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                        timeScale: {
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            timeVisible: true,
+                            secondsVisible: false,
+                        },
+                    });
+
+                    tvCandleSeries = tvChart.addCandlestickSeries({
+                        upColor: '#00c087',
+                        downColor: '#ff3860',
+                        borderVisible: false,
+                        wickUpColor: '#00c087',
+                        wickDownColor: '#ff3860',
+                    });
+
+                    tvVolumeSeries = tvChart.addHistogramSeries({
+                        color: 'rgba(0, 192, 135, 0.3)',
+                        priceFormat: { type: 'volume' },
+                        priceScaleId: '',
+                        scaleMargins: { top: 0.8, bottom: 0 },
+                    });
+
+                    window.addEventListener('resize', () => {
+                        if (tvChart && container) {
+                            tvChart.applyOptions({ width: container.clientWidth });
+                        }
+                    });
+                }
+
+                if (tvCandleSeries && tvVolumeSeries) {
+                    tvCandleSeries.setData(data.candles);
+                    tvVolumeSeries.setData(data.volumes);
+                    tvChart.timeScale().fitContent();
+                }
+            } catch (err) {
+                console.error("TV chart render error:", err);
+            } finally {
+                if (chartLoading) chartLoading.classList.add('hidden');
+            }
         }
 
         function switchChartTF(tf) {
@@ -1460,6 +1537,19 @@
             const btn = document.getElementById(`tfBtn_${tf}`);
             if (btn) btn.classList.add('active');
             updateChart();
+        }
+
+        async function pollWorkerStatus() {
+            try {
+                const res = await fetch('/api/worker/status');
+                const data = await res.json();
+                const badge = document.getElementById('workerStatusBadge');
+                const text = document.getElementById('workerStatusText');
+                if (badge && text && data) {
+                    badge.classList.remove('hidden');
+                    text.innerText = `SMART WORKER (${data.cache_read_speed || '<1ms'}) · ${data.status}`;
+                }
+            } catch (e) {}
         }
 
         // =====================================================================
@@ -2360,6 +2450,7 @@
 
         // Initialize on page load
         window.onload = () => {
+            pollWorkerStatus();
             loadEagleAlerts();
             loadScreener();
             loadBotStats();
@@ -2381,8 +2472,9 @@
                 switchView('reports');
             }
 
-            // Poll real-time Eagle-Eye alerts stream every 6 seconds
+            // Poll real-time Eagle-Eye alerts stream every 6 seconds & worker status every 10s
             setInterval(loadEagleAlerts, 6000);
+            setInterval(pollWorkerStatus, 10000);
         };
     </script>
 </body>
