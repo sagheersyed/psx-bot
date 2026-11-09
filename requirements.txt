@@ -7,3 +7,4 @@ python-dotenv>=1.0
 beautifulsoup4>=4.12
 # optional (book value fallback). Bot yfinance ke baghair bhi chalta hai:
 yfinance>=0.2
+gunicorn>=21.2.0

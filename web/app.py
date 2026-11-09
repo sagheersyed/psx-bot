@@ -273,7 +273,7 @@ def chart(symbol, tf="1D"):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    host, port = os.getenv("DASHBOARD_HOST", "127.0.0.1"), int(os.getenv("DASHBOARD_PORT", "5000"))
+    host, port = os.getenv("DASHBOARD_HOST", "127.0.0.1"), int(os.getenv("DASHBOARD_PORT", "5002"))
     print(f"🚀 PSX Terminal: http://127.0.0.1:{port}  (host={host})")
     start_eagle_eye(poll_interval=90)
     
