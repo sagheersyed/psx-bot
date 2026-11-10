@@ -54,7 +54,7 @@ def generate_post_market_report(broadcast: bool = False, force_refresh: bool = F
     # 3. Gather Low-Float Syndicate Cornering
     lf_data = low_float_analyzer.analyze_low_float_stocks(force_refresh=False)
     lf_stocks = lf_data.get("stocks", []) if isinstance(lf_data, dict) else (lf_data if isinstance(lf_data, list) else [])
-    cornered_stocks = [s for s in lf_stocks if s.get("float_turnover_pct", 0) >= 3.0 or s.get("phase_code") in ("UPPER_LOCK", "BREAKOUT", "ACCUMULATION")][:4]
+    cornered_stocks = [s for s in lf_stocks if (s.get("float_turnover_pct", 0) >= 3.0 or s.get("phase_code") in ("UPPER_LOCK", "BREAKOUT", "ACCUMULATION")) and s.get("phase_code") not in ("LOWER_LOCK", "DISTRIBUTION") and s.get("change_pct", 0) > -2.5][:4]
 
     report = {
         "report_type": "POST_MARKET_DEBRIEF",

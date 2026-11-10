@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 import config
-from . import data, mtf, journal, scoring
+from . import data, mtf, journal, scoring, regime
 from .signal import evaluate
 from .charts import generate_candlestick_chart
 
@@ -76,7 +76,9 @@ def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True, fast_mode
         pe = round(price / eps, 2)
     div_yield = fund.get("dividend_yield")
 
-    sig = evaluate(df_done, price, ldcp, align, pb, eps, micro_bear)
+    # beta-aware market/sector regime (index-linked stocks par KSE-100 trend ka asar, azad stocks par nahi)
+    rf = regime.live_regime(symbol, df_done["close"])
+    sig = evaluate(df_done, price, ldcp, align, pb, eps, micro_bear, regime=rf["value"] if rf else None)
     smc, g, lv, d = sig["smc"], sig["gates"], sig["levels"], sig["d"]
     last = d.iloc[-1]
 
@@ -187,6 +189,8 @@ def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True, fast_mode
 
     narrative = (f"Score {sig['score']:+.0f}/100 · Confidence {sig['confidence']}% (setup quality, guarantee nahi). "
                  f"Mukhya factors: {scoring.explain(sig['factors'])}. {smc['smc_summary']}{bt_line}")
+    if rf:
+        narrative += " " + regime.describe(rf) + "."
     if sig["note"]:
         narrative += f" Note: {sig['note']}."
     if warnings:
@@ -223,7 +227,7 @@ def analyze_stock(symbol: str, chart_tf: str = "1D", log: bool = True, fast_mode
         "prediction_narrative": narrative,
         "matrix": [{k: v for k, v in tfs[t["name"]].items() if k not in ("df", "weight", "score")}
                    for t in config.TIMEFRAMES if tfs.get(t["name"])],
-        "smc": smc, "warnings": warnings, "session_open": session_open,
+        "smc": smc, "warnings": warnings, "session_open": session_open, "regime": rf,
         "journal": journal.live_stats(), "chart_path": chart_path, "chart_tf": tf_for_chart,
     }
     return _clean(result)

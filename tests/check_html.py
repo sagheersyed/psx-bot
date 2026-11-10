@@ -1,6 +1,8 @@
+from pathlib import Path
 from html.parser import HTMLParser
 
-with open(r'd:\bot\web\templates\index.html', 'r', encoding='utf-8') as f:
+html_path = Path(__file__).resolve().parent.parent / "web" / "templates" / "index.html"
+with open(html_path, 'r', encoding='utf-8') as f:
     content = f.read()
 
 class TagCounter(HTMLParser):

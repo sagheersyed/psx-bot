@@ -12,12 +12,12 @@ from . import data
 
 # Comprehensive PSX Sector Taxonomy
 SECTOR_MAP = {
-    "Fertilizer": ["FFC", "EFERT", "ENGRO", "FFBL", "FATIMA"],
+    "Fertilizer": ["FFC", "EFERT", "ENGROH", "FATIMA"],
     "Oil & Gas Exploration (E&P)": ["OGDC", "PPL", "MARI", "POL"],
     "Cement": ["LUCK", "DGKC", "MLCF", "FCCL", "CHCC", "PIOC", "KOHC", "ACPL"],
     "Commercial Banks": ["HBL", "MCB", "UBL", "MEBL", "BAHL", "BAFL", "BOP", "FABL"],
     "Technology & Communication": ["SYS", "TRG", "AVN", "NETSOL", "AIRLINK", "WTL"],
-    "Oil & Gas Marketing (OMCs)": ["PSO", "SNGP", "SSGC", "SHEL", "APL"],
+    "Oil & Gas Marketing (OMCs)": ["PSO", "SNGP", "SSGC", "WAFI", "APL"],
     "Refinery": ["ATRL", "CNERGY", "PRL", "NRL"],
     "Power Generation": ["HUBC", "KAPCO", "KEL", "NCPL", "NPL"],
     "Automobile Assembler": ["INDU", "HCAR", "MTL", "AGTL"],

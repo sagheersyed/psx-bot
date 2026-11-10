@@ -118,20 +118,21 @@ class TestPSXIntradayInstitutionalSuite(unittest.TestCase):
             self.assertIn("GAP_UP_RETAIL_TRAP", zone_info["caution_flag"])
         print("\n[PASS] Test Case 3: 09:15-09:45 AM Gap-Up Trap Shield Passed! All entries blocked.")
 
-    def test_case_4_midday_low_volume_chop_lockout(self):
+    def test_case_4_active_window_0945_to_1430_and_eod_lockout(self):
         """
-        TEST CASE 4: 11:30 AM - 01:30 PM Midday Chop Zone Execution Lockout
-        PSX trading volume drops by 64% during lunch/namaz hours; breakout execution must be disabled.
+        TEST CASE 4: Active Intraday Window (09:45 AM - 02:30 PM) & EOD Square-Off Lockout (02:30 - 03:15 PM)
         """
-        chop_times = [time(11, 35), time(12, 0), time(12, 45), time(13, 25)]
-        for t in chop_times:
+        active_times = [time(10, 0), time(11, 45), time(12, 30), time(14, 15)]
+        for t in active_times:
             zone_info = get_session_kill_zone(t)
-            self.assertFalse(
+            self.assertTrue(
                 zone_info["can_enter"], 
-                f"Midday chop window at {t} must lock out entries"
+                f"Active intraday window at {t} (09:45-14:30) must allow entries"
             )
-            self.assertEqual(zone_info["zone"], "MIDDAY_CHOP_LOCKOUT")
-        print("\n[PASS] Test Case 4: Midday 11:30-13:30 Chop Zone Lockout Passed! Capital protected from bleed.")
+        eod_zone = get_session_kill_zone(time(14, 45))
+        self.assertFalse(eod_zone["can_enter"], "2:30-3:15 PM EOD Square-off must lock out new entries")
+        self.assertEqual(eod_zone["zone"], "EOD_SQUARE_OFF")
+        print("\n[PASS] Test Case 4: Active 09:45-14:30 Window & 14:30+ EOD Lockout Passed!")
 
     def test_case_5_overhead_resistance_fakeout_override(self):
         """

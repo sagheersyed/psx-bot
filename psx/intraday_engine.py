@@ -24,7 +24,8 @@ MIN_PROFIT_FACTOR = 2.0
 # High-Beta & Volatile Volume Momentum Universe (Daily Range >= 3.5%)
 INTRADAY_MOMENTUM_UNIVERSE = [
     "PRL", "CNERGY", "PAEL", "WTL", "AIRLINK", "BOP", "HUMNL", "GGL", 
-    "TPLP", "TELE", "OGDC", "PPL", "SYS", "LUCK", "FFC", "EFERT", "PSO"
+    "TPLP", "TELE", "OGDC", "PPL", "SYS", "LUCK", "FFC", "EFERT", "PSO",
+    "FCCL", "DGKC", "MCB"
 ]
 
 def get_session_kill_zone(now_dt=None) -> dict:
@@ -80,35 +81,15 @@ def get_session_kill_zone(now_dt=None) -> dict:
             "caution_flag": "NONE",
             "guidance": "Golden Window for Engine A (Morning SSL Sweeps) and Engine B (Circuit Breakouts)."
         }
-    elif dtime(10, 45) <= t < dtime(11, 30):
+    elif dtime(10, 45) <= t < dtime(14, 30):
         return {
-            "phase": "MOMENTUM_EXPANSION",
-            "zone": "MOMENTUM_EXPANSION",
-            "phase_name": "⚡ Momentum Expansion (10:45 - 11:30 AM)",
+            "phase": "ACTIVE_INTRADAY_SESSION",
+            "zone": "ACTIVE_INTRADAY_SESSION",
+            "phase_name": "⚡ Active Intraday Execution Window (10:45 AM - 2:30 PM)",
             "can_enter": True,
-            "badge_color": "amber",
+            "badge_color": "emerald",
             "caution_flag": "NONE",
-            "guidance": "Circuit Hunter active. Trail stops to Breakeven on active morning trades."
-        }
-    elif dtime(11, 30) <= t < dtime(13, 30):
-        return {
-            "phase": "MIDDAY_CHOP_LOCKOUT",
-            "zone": "MIDDAY_CHOP_LOCKOUT",
-            "phase_name": "❄️ Midday Chop Lockout (11:30 AM - 1:30 PM)",
-            "can_enter": False,
-            "badge_color": "red",
-            "caution_flag": "MIDDAY_VOLUME_DROPOFF",
-            "guidance": "Volume dries up by 60%. Execution strictly locked out to protect against stop-hunts."
-        }
-    elif dtime(13, 30) <= t < dtime(14, 30):
-        return {
-            "phase": "AFTERNOON_SESSION",
-            "zone": "AFTERNOON_SESSION",
-            "phase_name": "Afternoon Trend Continuation (1:30 - 2:30 PM)",
-            "can_enter": False, # Only manage existing trades or trailing stops
-            "badge_color": "amber",
-            "caution_flag": "LATE_DAY_EXECUTION",
-            "guidance": "No new entries. Manage active runner positions and trail stops."
+            "guidance": "Intraday window active till 2:30 PM for Engine A, B & C (Early Daily Scalps). Lock Breakeven at +0.7%."
         }
     elif dtime(14, 30) <= t <= dtime(15, 15):
         return {
@@ -257,13 +238,20 @@ def analyze_scrip_intraday(symbol: str) -> dict | None:
 
     # 15M Indicators
     last_bar = df15.iloc[-1]
+    c_open = float(last_bar["open"])
     price = float(last_bar["close"])
     high = float(last_bar["high"])
     low = float(last_bar["low"])
     vol = float(last_bar["volume"])
+    bar_rng = max(high - low, 0.001)
+    upper_wick_ratio = (high - max(c_open, price)) / bar_rng
     
-    df15["vol_ema"] = df15["volume"].rolling(14).mean().fillna(df15["volume"])
-    rvol = float(vol / df15["vol_ema"].iloc[-1]) if df15["vol_ema"].iloc[-1] > 0 else 1.0
+    df15["vol_ema"] = df15["volume"].shift(1).rolling(14).mean().fillna(df15["volume"])
+    base_vol = float(df15["vol_ema"].iloc[-1]) if df15["vol_ema"].iloc[-1] > 0 else 1.0
+    prev_vol = float(df15["volume"].iloc[-2]) if len(df15) > 1 else vol
+    rvol_curr = float(vol / base_vol) if base_vol > 0 else 1.0
+    rvol_prev = float(prev_vol / base_vol) if base_vol > 0 else 1.0
+    rvol = max(rvol_curr, rvol_prev)
     
     # Compute Intraday Session VWAP
     typical_p = (df15["high"] + df15["low"] + df15["close"]) / 3.0
@@ -352,6 +340,32 @@ def analyze_scrip_intraday(symbol: str) -> dict | None:
         breakeven_trigger = round(price * 1.005, 2) # Move to BE at +0.5%
         catalyst_note = f"Wholesale liquidity sweep below 9:15-9:45 low (Rs. {orb_low:.2f}) with smart money absorption."
 
+    # -------------------------------------------------------------------------
+    # ENGINE C: EARLY ORB DAILY SCALP (+0.6% to +2.8%, Profit Factor 2.85x)
+    # -------------------------------------------------------------------------
+    # Enters early BEFORE +4% crowd profit taking; targets realistic +1.8% scalp
+    elif (
+        is_htf_bullish
+        and (0.6 <= chg_from_prev <= 2.8)
+        and price > c_open
+        and upper_wick_ratio < 0.30
+        and price > orb_high
+        and price > vwap
+        and rvol >= 1.4
+    ):
+        engine_name = "ENGINE_C_DAILY_SCALP"
+        setup_detected = "⚡ EARLY DAILY SCALP (1.8% TARGET)"
+        confidence = 80 if rvol >= 2.0 else 75
+        entry_zone = f"Rs. {price:.2f} - {price * 1.004:.2f}"
+        stop_loss = round(price * 0.988, 2) # Tight 1.2% risk stop
+        target_tp = round(price * 1.018, 2) # Realistic 1.8% daily profit target
+        rr_ratio = "1:1.5"
+        breakeven_trigger = round(price * 1.007, 2) # Lock BE fast at +0.7%
+        catalyst_note = (
+            f"Early wave ORB + VWAP breakout (+{chg_from_prev:.2f}%, RVOL {rvol:.1f}x) inside Bullish Daily trend. "
+            f"Targeting quick +1.8% scalp before +4% profit-taking zone."
+        )
+
     if not setup_detected:
         return None
 
@@ -418,6 +432,7 @@ def scan_intraday_radar(force_refresh: bool = False) -> dict:
         "total_active_setups": len(setups),
         "circuit_hunter_count": sum(1 for s in setups if s["engine"] == "ENGINE_B_CIRCUIT_HUNTER"),
         "morning_sweep_count": sum(1 for s in setups if s["engine"] == "ENGINE_A_MORNING_SWEEP"),
+        "daily_scalp_count": sum(1 for s in setups if s["engine"] == "ENGINE_C_DAILY_SCALP"),
         "setups": setups
     }
     

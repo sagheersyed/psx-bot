@@ -588,7 +588,7 @@
                             <span class="text-[10px] bg-yellow-950 text-yellow-300 border border-yellow-800 px-2.5 py-0.5 rounded-full font-bold">10% CIRCUIT CEILING</span>
                         </h2>
                         <p class="text-xs text-gray-400 font-mono mt-1">
-                            High-accuracy day trading engine strictly partitioned into <b>Engine A (Morning SSL Sweeps)</b> &amp; <b>Engine B (10% Circuit Hunter)</b> with automated Breakeven stops and Midday chop lockouts.
+                            High-accuracy day trading engine strictly partitioned into <b>Engine A (Morning SSL Sweeps)</b> &amp; <b>Engine B (10% Circuit Hunter)</b> with automated Breakeven stops (Active Window: 09:45 AM - 02:30 PM).
                         </p>
                     </div>
                 </div>
@@ -629,17 +629,9 @@
                             <span class="text-emerald-400 block font-bold">09:45 - 10:45</span>
                             <span class="text-gray-400">🔥 Prime Kill-Zone</span>
                         </div>
-                        <div class="p-2 rounded-lg bg-dark-950 border border-yellow-900/40 text-center">
-                            <span class="text-yellow-400 block font-bold">10:45 - 11:30</span>
-                            <span class="text-gray-400">⚡ Circuit Velocity</span>
-                        </div>
-                        <div class="p-2 rounded-lg bg-dark-950 border border-red-900/40 text-center">
-                            <span class="text-red-400 block font-bold">11:30 - 13:30</span>
-                            <span class="text-gray-400">❄️ Midday Chop Lock</span>
-                        </div>
-                        <div class="p-2 rounded-lg bg-dark-950 border border-amber-900/40 text-center">
-                            <span class="text-amber-400 block font-bold">13:30 - 14:30</span>
-                            <span class="text-gray-400">Runner Trailing</span>
+                        <div class="p-2 rounded-lg bg-dark-950 border border-emerald-900/40 text-center col-span-2 sm:col-span-3">
+                            <span class="text-emerald-400 block font-bold">10:45 - 14:30 (2:30 PM)</span>
+                            <span class="text-gray-400">⚡ Active Intraday Execution (Scalps &amp; Breakouts)</span>
                         </div>
                         <div class="p-2 rounded-lg bg-dark-950 border border-purple-900/40 text-center">
                             <span class="text-purple-400 block font-bold">14:30 - 15:15</span>
@@ -650,11 +642,16 @@
             </div>
 
             <!-- Intraday Core Stats -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-xs">
                 <div class="bg-dark-900 p-3 rounded-xl border border-gray-800">
-                    <span class="text-gray-400 text-[10px] uppercase block">Tracked Momentum Universe</span>
-                    <span class="text-lg font-bold text-white mt-0.5 block">17 Scrips</span>
-                    <span class="text-[9px] text-gray-500">High-Beta (Daily Range &ge;3.5%)</span>
+                    <span class="text-gray-400 text-[10px] uppercase block">Tracked Universe</span>
+                    <span class="text-lg font-bold text-white mt-0.5 block">20 Scrips</span>
+                    <span class="text-[9px] text-gray-500">High-Beta &amp; Liquid Leaders</span>
+                </div>
+                <div class="bg-dark-900 p-3 rounded-xl border border-cyan-900/50">
+                    <span class="text-cyan-400 text-[10px] uppercase block">⚡ Early Daily Scalps</span>
+                    <span id="statDailyScalps" class="text-lg font-bold text-cyan-300 mt-0.5 block">0 Active</span>
+                    <span class="text-[9px] text-gray-500">+0.6% to +2.8% &rarr; +1.8% TP (PF 2.85x)</span>
                 </div>
                 <div class="bg-dark-900 p-3 rounded-xl border border-yellow-900/50">
                     <span class="text-yellow-400 text-[10px] uppercase block">🚀 10% Circuit Hunters</span>
@@ -831,6 +828,7 @@
                     <select id="lfPhaseFilter" onchange="filterLowFloatList()" class="bg-dark-900 border border-gray-800 text-gray-300 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500">
                         <option value="ALL">All Syndicate Phases</option>
                         <option value="UPPER_LOCK">🚀 Upper Circuit Lock</option>
+                        <option value="LOWER_LOCK">🚨 Lower Circuit Lock</option>
                         <option value="BREAKOUT">⚡ Volume Breakout (Game On)</option>
                         <option value="ACCUMULATION">🟢 Active Accumulation (Game Forming)</option>
                         <option value="RANGE">⚖️ Range Consolidation</option>
@@ -990,6 +988,106 @@
                     <button onclick="filterSectors('ALL')" id="secPillAll" class="px-3 py-1 rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold transition">All 14 Sectors</button>
                     <button onclick="filterSectors('INFLOW')" id="secPillInflow" class="px-3 py-1 rounded-lg bg-dark-900 text-gray-400 border border-gray-800 hover:text-emerald-400 font-bold transition">🔥 Leading Inflows Only</button>
                     <button onclick="filterSectors('OUTFLOW')" id="secPillOutflow" class="px-3 py-1 rounded-lg bg-dark-900 text-gray-400 border border-gray-800 hover:text-red-400 font-bold transition">🚨 Bleeding Outflows Only</button>
+                </div>
+            </div>
+
+            <!-- 🏦 NCCPL DAILY EOD ACTIVITY & SYNDICATE FLOW TRACKER -->
+            <div class="glass rounded-2xl p-6 border-indigo-500/25 space-y-5 font-mono text-xs" id="nccplFlowPanel">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-gray-800 pb-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">🏦</span>
+                        <div>
+                            <h3 class="text-sm sm:text-base font-bold tracking-wider text-white uppercase flex flex-wrap items-center gap-2">
+                                NCCPL Daily EOD FIPI / LIPI &amp; Syndicate Flow Tracker
+                                <span id="nccplDateBadge" class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded-full font-bold">LOADING...</span>
+                            </h3>
+                            <p class="text-[11px] text-gray-400 mt-0.5">Tracks official NCCPL net institutional flows (USD &amp; PKR), Top 5 Accumulated/Distributed sectors per category &amp; cross-references with Float Turnover.</p>
+                        </div>
+                    </div>
+                    <button onclick="loadNccplFlows(true)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/60 border border-indigo-800 hover:bg-indigo-900 text-indigo-300 text-xs transition self-start lg:self-auto">
+                        <span>🔄</span>
+                        <span>Sync NCCPL EOD</span>
+                    </button>
+                </div>
+
+                <div id="nccplDelayBanner" class="hidden px-3.5 py-2 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-300 text-[11px]"></div>
+
+                <!-- Summary KPI Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="nccplSummaryGrid">
+                    <div class="bg-dark-900 p-3 rounded-xl border border-gray-800"><span class="text-gray-400 text-[10px] block">FIPI (Foreigners)</span><span id="nccplFipiVal" class="text-base font-bold text-white">--</span></div>
+                    <div class="bg-dark-900 p-3 rounded-xl border border-gray-800"><span class="text-gray-400 text-[10px] block">Mutual Funds</span><span id="nccplMfVal" class="text-base font-bold text-white">--</span></div>
+                    <div class="bg-dark-900 p-3 rounded-xl border border-gray-800"><span class="text-gray-400 text-[10px] block">Banks / DFIs</span><span id="nccplBanksVal" class="text-base font-bold text-white">--</span></div>
+                    <div class="bg-dark-900 p-3 rounded-xl border border-gray-800"><span class="text-gray-400 text-[10px] block">Brokers Prop Desk</span><span id="nccplBrokersVal" class="text-base font-bold text-white">--</span></div>
+                    <div class="bg-dark-900 p-3 rounded-xl border border-gray-800"><span class="text-gray-400 text-[10px] block">Individuals (Retail)</span><span id="nccplRetailVal" class="text-base font-bold text-white">--</span></div>
+                </div>
+
+                <!-- 2-Col: Investor Table + Top 5 Accumulated/Distributed Sectors -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- Category Net Flows Table -->
+                    <div class="bg-dark-900/70 rounded-xl border border-gray-800 p-4 space-y-3 overflow-x-auto">
+                        <div class="text-xs font-bold text-indigo-300 uppercase tracking-wider">Investor Category Net Flows (USD &amp; PKR)</div>
+                        <table class="w-full text-left text-[11px]">
+                            <thead class="text-gray-400 border-b border-gray-800">
+                                <tr>
+                                    <th class="py-1.5">Category</th>
+                                    <th class="py-1.5 text-right">Net USD ($M)</th>
+                                    <th class="py-1.5 text-right">Net PKR (M)</th>
+                                    <th class="py-1.5 text-right">Bias</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nccplCatBody" class="divide-y divide-gray-800/60">
+                                <tr><td colspan="4" class="py-6 text-center text-gray-500 italic">Loading NCCPL clearing breakdown...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Top 5 Accumulated vs Distributed Sectors per Participant -->
+                    <div class="bg-dark-900/70 rounded-xl border border-gray-800 p-4 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Top 5 Accumulated vs Distributed Sectors</span>
+                            <select id="nccplParticipantSelect" onchange="renderNccplSectorRankings()" class="bg-dark-950 border border-gray-700 text-gray-200 rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500">
+                                <option value="MUTUAL FUNDS">Local Mutual Funds</option>
+                                <option value="FIPI">Foreigners (FIPI)</option>
+                                <option value="SMART_MONEY_COMBINED">Smart Money Combined</option>
+                                <option value="BANKS / DFI">Banks / DFIs</option>
+                                <option value="INSURANCE COMPANIES">Insurance Companies</option>
+                                <option value="BROKER PROPRIETARY TRADING">Broker Proprietary</option>
+                                <option value="INDIVIDUALS">Individuals (Retail)</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="nccplSectorRankContainer">
+                            <div class="bg-dark-950 p-3 rounded-lg border border-emerald-900/40">
+                                <div class="text-[10px] font-bold text-emerald-400 uppercase mb-2">🟢 Top 5 Net Accumulated</div>
+                                <div id="nccplTopAccList" class="space-y-1.5 text-[11px] text-gray-300">--</div>
+                            </div>
+                            <div class="bg-dark-950 p-3 rounded-lg border border-red-900/40">
+                                <div class="text-[10px] font-bold text-red-400 uppercase mb-2">🔴 Top 5 Net Distributed</div>
+                                <div id="nccplTopDistList" class="space-y-1.5 text-[11px] text-gray-300">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cross-Referenced Syndicate Triggers -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-dark-900/70 rounded-xl border border-emerald-800/40 p-4 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-400 uppercase">🔥 Institutional Accumulation Triggers (Float + NCCPL)</span>
+                            <span id="nccplAccTrigCount" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">0</span>
+                        </div>
+                        <div id="nccplAccTrigList" class="space-y-2 text-[11px]">
+                            <div class="text-gray-500 italic">Cross-referencing float turnover with institutional sector buying...</div>
+                        </div>
+                    </div>
+                    <div class="bg-dark-900/70 rounded-xl border border-red-800/40 p-4 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-red-400 uppercase">⚠️ Retail FOMO / Institutional Exit Warnings</span>
+                            <span id="nccplExitTrigCount" class="text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800">0</span>
+                        </div>
+                        <div id="nccplExitTrigList" class="space-y-2 text-[11px]">
+                            <div class="text-gray-500 italic">Checking for institutional distribution divergence...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1600,6 +1698,9 @@
                 }
             }
 
+            const dCount = document.getElementById('statDailyScalps');
+            if (dCount) dCount.innerText = `${data.daily_scalp_count || 0} Active`;
+
             const cCount = document.getElementById('statCircuitHunters');
             if (cCount) cCount.innerText = `${data.circuit_hunter_count || 0} Active`;
 
@@ -1627,8 +1728,11 @@
             grid.innerHTML = '';
             data.setups.forEach(s => {
                 const isCircuit = s.engine === 'ENGINE_B_CIRCUIT_HUNTER';
+                const isScalp = s.engine === 'ENGINE_C_DAILY_SCALP';
+                const borderCls = isCircuit ? 'border-yellow-600/40 hover:border-yellow-500' : (isScalp ? 'border-cyan-500/40 hover:border-cyan-400' : 'border-emerald-600/40 hover:border-emerald-500');
+                const badgeCls = isCircuit ? 'bg-yellow-950 text-yellow-300 border border-yellow-800' : (isScalp ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800');
                 const card = document.createElement('div');
-                card.className = `p-4 bg-dark-900/90 rounded-2xl border ${isCircuit ? 'border-yellow-600/40 hover:border-yellow-500' : 'border-emerald-600/40 hover:border-emerald-500'} flex flex-col justify-between space-y-3 transition shadow`;
+                card.className = `p-4 bg-dark-900/90 rounded-2xl border ${borderCls} flex flex-col justify-between space-y-3 transition shadow`;
 
                 card.innerHTML = `
                     <div>
@@ -1639,7 +1743,7 @@
                                     ${s.change_pct >= 0 ? '+' : ''}${s.change_pct}%
                                 </span>
                             </div>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded ${isCircuit ? 'bg-yellow-950 text-yellow-300 border border-yellow-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'}">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badgeCls}">
                                 ${s.setup_name}
                             </span>
                         </div>
@@ -1825,18 +1929,21 @@
             stocks.forEach(s => {
                 const card = document.createElement('div');
                 const isLock = s.phase_code === 'UPPER_LOCK';
+                const isLowerLock = s.phase_code === 'LOWER_LOCK';
                 const isBreakout = s.phase_code === 'BREAKOUT';
                 const isAccum = s.phase_code === 'ACCUMULATION';
                 const isDist = s.phase_code === 'DISTRIBUTION';
 
                 let borderTheme = 'border-gray-800 hover:border-gray-700';
                 if (isLock) borderTheme = 'border-purple-600/70 glow-purple';
+                else if (isLowerLock) borderTheme = 'border-red-600/90 glow-red animate-pulse';
                 else if (isBreakout) borderTheme = 'border-amber-500/70 glow-amber';
                 else if (isAccum) borderTheme = 'border-emerald-500/70 glow-green';
                 else if (isDist) borderTheme = 'border-red-600/70 glow-red';
 
                 let phaseBadgeClass = 'bg-dark-950 text-gray-400 border-gray-800';
                 if (isLock) phaseBadgeClass = 'bg-purple-950 text-purple-300 border-purple-700 animate-pulse';
+                else if (isLowerLock) phaseBadgeClass = 'bg-red-950 text-red-300 border-red-700 font-bold animate-pulse';
                 else if (isBreakout) phaseBadgeClass = 'bg-amber-950 text-amber-300 border-amber-700';
                 else if (isAccum) phaseBadgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-700';
                 else if (isDist) phaseBadgeClass = 'bg-red-950 text-red-300 border-red-700';
@@ -2130,7 +2237,135 @@
         let sectorMasterData = null;
         let currentSectorFilter = 'ALL';
 
+        // 🏦 NCCPL DAILY EOD FIPI / LIPI TRACKER JAVASCRIPT LOGIC
+        let nccplMasterData = null;
+
+        async function loadNccplFlows(force = false) {
+            try {
+                const res = await fetch(`/api/nccpl/flows?refresh=${force ? 1 : 0}`);
+                const data = await res.json();
+                if (data && !data.error) {
+                    nccplMasterData = data;
+                    renderNccplFlows(data);
+                } else {
+                    const badge = document.getElementById('nccplDateBadge');
+                    if (badge) badge.innerText = 'DELAYED / UNAVAILABLE';
+                }
+            } catch (e) {
+                console.error("NCCPL flow load error:", e);
+            }
+        }
+
+        function _fmtUsdM(v) {
+            const num = Number(v || 0);
+            const cls = num > 0 ? 'text-emerald-400' : (num < 0 ? 'text-red-400' : 'text-gray-400');
+            return `<span class="${cls}">${num >= 0 ? '+' : ''}$${num.toFixed(2)}M</span>`;
+        }
+
+        function renderNccplFlows(data) {
+            const badge = document.getElementById('nccplDateBadge');
+            if (badge) badge.innerText = `EOD REPORT: ${data.report_date || '--'}`;
+
+            const delayBanner = document.getElementById('nccplDelayBanner');
+            if (delayBanner) {
+                if (data.is_delayed && data.delay_note) {
+                    delayBanner.innerText = `⏳ ${data.delay_note}`;
+                    delayBanner.classList.remove('hidden');
+                } else {
+                    delayBanner.classList.add('hidden');
+                }
+            }
+
+            const sm = data.summary || {};
+            const setHtml = (id, htmlStr) => { const el = document.getElementById(id); if (el) el.innerHTML = htmlStr; };
+            const mfEq = sm.mutual_funds_equity_net_usd_m !== undefined ? sm.mutual_funds_equity_net_usd_m : sm.mutual_funds_net_usd_m;
+            const bkEq = sm.banks_equity_net_usd_m !== undefined ? sm.banks_equity_net_usd_m : sm.banks_net_usd_m;
+            setHtml('nccplFipiVal', _fmtUsdM(sm.fipi_net_usd_m));
+            setHtml('nccplMfVal', _fmtUsdM(mfEq) + '<span class="block text-[9px] text-gray-500 font-normal">Equities Only</span>');
+            setHtml('nccplBanksVal', _fmtUsdM(bkEq) + '<span class="block text-[9px] text-gray-500 font-normal">Equities Only</span>');
+            setHtml('nccplBrokersVal', _fmtUsdM(sm.brokers_net_usd_m));
+            setHtml('nccplRetailVal', _fmtUsdM(sm.individuals_net_usd_m));
+
+            // Investor Categories Table (Shows Equities Net Flow + Debt footnote if present)
+            const tbody = document.getElementById('nccplCatBody');
+            if (tbody && Array.isArray(data.categories)) {
+                tbody.innerHTML = data.categories.map(c => {
+                    const eqUsd = c.equity_net_usd_m !== undefined ? c.equity_net_usd_m : c.net_usd_m;
+                    const eqPkr = c.equity_net_pkr_m !== undefined ? c.equity_net_pkr_m : c.net_pkr_m;
+                    const hasDebt = Math.abs(c.debt_net_usd_m || 0) > 0.1;
+                    const uCls = eqUsd >= 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold';
+                    const bCls = c.bias === 'ACCUMULATING' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' : (c.bias === 'DISTRIBUTING' ? 'bg-red-950 text-red-300 border-red-800' : 'bg-dark-950 text-gray-400 border-gray-800');
+                    const debtNote = hasDebt ? `<span class="block text-[9px] text-gray-500 font-normal">Debt Mkt: ${c.debt_net_usd_m >= 0 ? '+' : ''}$${c.debt_net_usd_m.toFixed(1)}M</span>` : '';
+                    return `
+                        <tr class="hover:bg-dark-800/40">
+                            <td class="py-1.5 text-gray-200">${c.label}${debtNote}</td>
+                            <td class="py-1.5 text-right ${uCls}">${eqUsd >= 0 ? '+' : ''}$${eqUsd.toFixed(2)}M</td>
+                            <td class="py-1.5 text-right ${uCls}">Rs.${eqPkr >= 0 ? '+' : ''}${eqPkr.toFixed(1)}M</td>
+                            <td class="py-1.5 text-right"><span class="text-[9px] px-1.5 py-0.5 rounded border ${bCls}">${c.bias}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            renderNccplSectorRankings();
+
+            // Cross-Reference Triggers
+            const xref = data.cross_reference || {};
+            const acc = xref.accumulation_triggers || [];
+            const ext = xref.exit_traps || [];
+            const accCount = document.getElementById('nccplAccTrigCount');
+            if (accCount) accCount.innerText = acc.length;
+            const extCount = document.getElementById('nccplExitTrigCount');
+            if (extCount) extCount.innerText = ext.length;
+
+            const accList = document.getElementById('nccplAccTrigList');
+            if (accList) {
+                accList.innerHTML = acc.length ? acc.slice(0, 5).map(a => `
+                    <div onclick="quickSearch('${a.symbol}')" class="p-2.5 rounded-lg bg-dark-950 border border-emerald-900/50 hover:border-emerald-500 cursor-pointer transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white">#${a.symbol} <span class="text-[10px] text-gray-400 font-normal">(${a.sector})</span></span>
+                            <span class="text-emerald-400 font-bold">Float: ${a.float_turnover_pct}% · ${a.vol_surge_x}x RVOL</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400 mt-1">${a.reason}</div>
+                    </div>
+                `).join('') : '<div class="text-gray-500 italic">No active float + institutional confluence triggers right now.</div>';
+            }
+
+            const extList = document.getElementById('nccplExitTrigList');
+            if (extList) {
+                extList.innerHTML = ext.length ? ext.slice(0, 5).map(x => `
+                    <div onclick="quickSearch('${x.symbol}')" class="p-2.5 rounded-lg bg-dark-950 border border-red-900/50 hover:border-red-500 cursor-pointer transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white">#${x.symbol} <span class="text-[10px] text-red-400">(${x.change_pct >= 0 ? '+' : ''}${x.change_pct}%)</span></span>
+                            <span class="text-red-400 text-[10px] font-bold">${x.trigger_badge}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400 mt-1">${x.reason}</div>
+                    </div>
+                `).join('') : '<div class="text-gray-500 italic">No institutional exit traps flagged.</div>';
+            }
+        }
+
+        function renderNccplSectorRankings() {
+            if (!nccplMasterData || !nccplMasterData.sector_rankings_by_participant) return;
+            const part = document.getElementById('nccplParticipantSelect')?.value || 'MUTUAL FUNDS';
+            const rank = nccplMasterData.sector_rankings_by_participant[part] || { top_accumulated: [], top_distributed: [] };
+
+            const accEl = document.getElementById('nccplTopAccList');
+            const distEl = document.getElementById('nccplTopDistList');
+            if (accEl) {
+                accEl.innerHTML = (rank.top_accumulated || []).length
+                    ? rank.top_accumulated.map(s => `<div class="flex justify-between"><span>${s.sector}</span><span class="text-emerald-400 font-bold">+$${s.net_usd_m.toFixed(2)}M</span></div>`).join('')
+                    : '<div class="text-gray-500 italic">No net accumulation sectors.</div>';
+            }
+            if (distEl) {
+                distEl.innerHTML = (rank.top_distributed || []).length
+                    ? rank.top_distributed.map(s => `<div class="flex justify-between"><span>${s.sector}</span><span class="text-red-400 font-bold">$${s.net_usd_m.toFixed(2)}M</span></div>`).join('')
+                    : '<div class="text-gray-500 italic">No net distribution sectors.</div>';
+            }
+        }
+
         async function loadSectorHeatmap(force = false) {
+            loadNccplFlows(force);
             const grid = document.getElementById('sectorsGrid');
             if (!grid) return;
             if (force || !sectorMasterData) {

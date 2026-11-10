@@ -141,6 +141,24 @@ def api_sector_rotation():
     return jsonify(res)
 
 
+@app.route("/api/nccpl/flows")
+def api_nccpl_flows():
+    try:
+        force = bool(int(request.args.get("refresh", 0)))
+        target_date = request.args.get("date", "").strip() or None
+        if not force and not target_date:
+            cached = cache.get_json("psx:nccpl:flows")
+            if cached:
+                return jsonify(cached)
+        from psx.nccpl_tracker import fetch_nccpl_flows
+        res = fetch_nccpl_flows(target_date=target_date, force_refresh=force)
+        if res and "error" not in res and not target_date:
+            cache.set_json("psx:nccpl:flows", res, ttl=300)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/reports/eod")
 def api_reports_eod():
     broadcast = bool(int(request.args.get("broadcast", 0)))

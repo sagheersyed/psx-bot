@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import config
 from .cache_engine import cache
-from . import sector_rotation, screener, low_float_analyzer, intraday_engine, reports
+from . import sector_rotation, screener, low_float_analyzer, intraday_engine, reports, nccpl_tracker
 
 _WORKER_THREAD = None
 _RUNNING = False
@@ -67,6 +67,14 @@ def _run_worker_loop():
                 pre_rep = reports.generate_pre_market_report(force_refresh=True)
                 cache.set_json("psx:reports:eod", eod_rep, ttl=600)
                 cache.set_json("psx:reports:premarket", pre_rep, ttl=600)
+
+            # 6. NCCPL Daily EOD Institutional Flow Tracker (6:30 PM PKT trigger + 15-min cache sync)
+            if cycle % 15 == 0:
+                nccpl_tracker.maybe_run_eod_nccpl_job(force=False)
+                if not cache.get_json("psx:nccpl:flows"):
+                    nccpl_data = nccpl_tracker.fetch_nccpl_flows(force_refresh=False)
+                    if nccpl_data and "error" not in nccpl_data:
+                        cache.set_json("psx:nccpl:flows", nccpl_data, ttl=300)
 
             _STATS["cycles_completed"] += 1
             _STATS["last_sync"] = now_str

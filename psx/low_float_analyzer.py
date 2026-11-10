@@ -634,20 +634,44 @@ def _analyze_single_scrip(item: Dict[str, Any], current_month: int) -> Optional[
         # Determine Syndicate / Game Phase (Scaled for Micro & Low Float Realities - 10% / Rs. 1.00 Circuit Rule)
         min_lock_gain = max(price * 0.095, 0.95) # 10% or Rs. 1.00 circuit limit
         price_gain = price - float(latest.get("open", price))
-        if change_pct >= 9.5 or (price <= 12.0 and price_gain >= 0.95):
+        
+        # 1. Lower Circuit Lock (10% or Rs. 1.00 Drop)
+        if change_pct <= -9.5 or (price <= 12.0 and price_gain <= -0.95):
+            phase = "🚨 LOWER CIRCUIT LOCK"
+            phase_code = "LOWER_LOCK"
+            insight = "Severe selling pressure; locked at 10% lower circuit limit. No buyer liquidity — strictly avoid (Falling Knife)!"
+        
+        # 2. Upper Circuit Lock (10% or Rs. 1.00 Gain)
+        elif change_pct >= 9.5 or (price <= 12.0 and price_gain >= 0.95):
             phase = "🚀 UPPER CIRCUIT LOCK"
             phase_code = "UPPER_LOCK"
             insight = "Supply cornered; locked at 10% upper circuit. Continuous session mein retail entry mushkil hoti hai, pre-open 9:15 AM limit order se follow hota hai."
         
+        # 3. Severe Dump / Liquidation
+        elif change_pct <= -4.0:
+            if float_turnover >= 3.0 or vol_surge_x >= 2.0:
+                phase = "⚠️ HEAVY DUMPING / DISTRIBUTION"
+                phase_code = "DISTRIBUTION"
+                insight = f"Heavy selling volume ({float_turnover}% of float dumped) on sharp drop ({change_pct:+.2f}%)! Operators exiting shares — avoid!"
+            else:
+                phase = "🔴 BEARISH SLIDE"
+                phase_code = "DISTRIBUTION"
+                insight = f"Sharp slide ({change_pct:+.2f}%). Structure weak hai, bottom confirmation ka intezar karein."
+
+        # 4. High Turnover / Surge Volume
         elif float_turnover >= 8.0 or (vol_surge_x >= 2.5 and float_turnover >= 1.8):
-            if upper_wick_ratio >= 0.45 and change_pct < 2.0:
+            if upper_wick_ratio >= 0.45 or change_pct < 0.0:
                 phase = "⚠️ DISTRIBUTION TRAP"
                 phase_code = "DISTRIBUTION"
-                insight = "Heavy turnover bana magar upper lock hold nahi hua (upper wick rejection). Syndicate public par dump kar rahi hai, foran exit karein!"
-            else:
+                insight = f"Heavy turnover bana magar price reject/negative ({change_pct:+.2f}%). Syndicate public par dump kar rahi hai, foran exit karein!"
+            elif change_pct >= 1.5:
                 phase = "⚡ VOLUME BREAKOUT (Game On)"
                 phase_code = "BREAKOUT"
-                insight = f"Daily turnover tradable float ka {float_turnover}% absorb kar gaya! Syndicate buying wave actively ignite ho chuki hai."
+                insight = f"Daily turnover tradable float ka {float_turnover}% absorb kar gaya with price up {change_pct:+.2f}%! Syndicate buying wave actively ignite ho chuki hai."
+            else:
+                phase = "⚖️ HIGH VOLUME CONSOLIDATION"
+                phase_code = "RANGE"
+                insight = f"Turnover elevated ({float_turnover}% of float), price neutral ({change_pct:+.2f}%). Directional trigger ka intezar karein."
 
         elif (float_turnover >= 1.8 or vol_surge_x >= 1.4) and (-1.5 <= change_pct <= 5.5):
             phase = "🟢 ACTIVE ACCUMULATION (Game Forming)"
@@ -709,8 +733,9 @@ def analyze_low_float_stocks(force_refresh: bool = False) -> Dict[str, Any]:
         "BREAKOUT": 2,
         "ACCUMULATION": 3,
         "DISTRIBUTION": 4,
-        "RANGE": 5,
-        "DORMANT": 6
+        "LOWER_LOCK": 5,
+        "RANGE": 6,
+        "DORMANT": 7
     }
     results.sort(key=lambda x: (
         priority_order.get(x["phase_code"], 99),
@@ -719,16 +744,20 @@ def analyze_low_float_stocks(force_refresh: bool = False) -> Dict[str, Any]:
     ))
 
     upper_lock_count = sum(1 for s in results if s["phase_code"] == "UPPER_LOCK")
+    lower_lock_count = sum(1 for s in results if s["phase_code"] == "LOWER_LOCK")
     volume_breakout_count = sum(1 for s in results if s["phase_code"] == "BREAKOUT")
     game_forming_count = sum(1 for s in results if s["phase_code"] == "ACCUMULATION")
+    distribution_count = sum(1 for s in results if s["phase_code"] == "DISTRIBUTION")
     active_season_count = sum(1 for s in results if s["in_season"])
 
     payload = {
         "current_month": month_name,
         "total_tracked": len(results),
         "upper_lock_count": upper_lock_count,
+        "lower_lock_count": lower_lock_count,
         "volume_breakout_count": volume_breakout_count,
         "game_forming_count": game_forming_count,
+        "distribution_count": distribution_count,
         "active_season_count": active_season_count,
         "stocks": results
     }

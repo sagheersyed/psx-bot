@@ -101,20 +101,16 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
             atr = float(row["atr"])
 
             # -------------------------------------------------------------
-            # Active Position Management
+            # Active Position Management (Conservative bar order: SL -> TP -> EOD -> BE Trail)
             # -------------------------------------------------------------
+            leg_cost = roundtrip_cost_pct / 2.0
             if in_trade:
-                # 1. Breakeven Trail Check: If price moved +0.5R, move SL to breakeven!
-                if not be_activated and high >= (trade_entry["price"] + trade_entry["risk"] * 0.5):
-                    trade_entry["sl"] = trade_entry["price"] * (1 + roundtrip_cost_pct)
-                    be_activated = True
-
-                # 2. Check Stop Loss / Breakeven Exit
+                # 1. Check Stop Loss / Breakeven Exit FIRST (using SL from prior bar)
                 if low <= trade_entry["sl"]:
-                    exit_price = trade_entry["sl"] * (1 - roundtrip_cost_pct)
+                    exit_price = trade_entry["sl"] * (1 - leg_cost)
                     pnl_pct = ((exit_price - trade_entry["price"]) / trade_entry["price"]) * 100.0
                     r_ret = (exit_price - trade_entry["price"]) / trade_entry["risk"]
-                    is_win = pnl_pct >= 0.05
+                    res_tag = "WIN" if pnl_pct > 0.05 else ("BREAKEVEN" if be_activated else "LOSS")
                     trades.append({
                         "symbol": symbol,
                         "entry_time": trade_entry["time"].strftime("%Y-%m-%d %H:%M"),
@@ -124,16 +120,16 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
                         "exit_price": round(exit_price, 2),
                         "pnl_pct": round(pnl_pct, 2),
                         "r_multiple": round(r_ret, 2),
-                        "result": "WIN" if is_win else "LOSS",
+                        "result": res_tag,
                         "exit_reason": "BREAKEVEN_EXIT" if be_activated else "STOP_LOSS"
                     })
                     in_trade = False
                     trade_entry = None
                     continue
 
-                # 3. Check Take Profit (1.2R Institutional Scalp Target)
+                # 2. Check Take Profit (1.2R Institutional Scalp Target)
                 elif high >= trade_entry["tp"]:
-                    exit_price = trade_entry["tp"] * (1 - roundtrip_cost_pct)
+                    exit_price = trade_entry["tp"] * (1 - leg_cost)
                     pnl_pct = ((exit_price - trade_entry["price"]) / trade_entry["price"]) * 100.0
                     r_ret = (exit_price - trade_entry["price"]) / trade_entry["risk"]
                     trades.append({
@@ -152,9 +148,9 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
                     trade_entry = None
                     continue
 
-                # 4. Mandatory Session Square-Off at 3:15 PM
+                # 3. Mandatory Session Square-Off at 3:15 PM
                 elif time_of_day >= dtime(15, 10):
-                    exit_price = price * (1 - roundtrip_cost_pct)
+                    exit_price = price * (1 - leg_cost)
                     pnl_pct = ((exit_price - trade_entry["price"]) / trade_entry["price"]) * 100.0
                     r_ret = (exit_price - trade_entry["price"]) / trade_entry["risk"]
                     trades.append({
@@ -172,6 +168,11 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
                     in_trade = False
                     trade_entry = None
                     continue
+
+                # 4. Breakeven Trail Check for NEXT bar: If price moved +0.5R, lock SL at entry
+                if not be_activated and high >= (trade_entry["price"] + trade_entry["risk"] * 0.5):
+                    trade_entry["sl"] = round(trade_entry["price"] * (1 + leg_cost), 2)
+                    be_activated = True
 
             # -------------------------------------------------------------
             # Setup Detection: ONLY During Morning Kill Zone (9:45 - 11:15 AM)
@@ -195,14 +196,15 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
                     setup_name = "ORB_MOMENTUM_BREAKOUT"
 
                 if setup_name:
-                    sl_dist = max(atr * 1.0, price * 0.007)  # Dynamic ATR Stop Loss
-                    sl = price - sl_dist
-                    risk = price - sl
-                    tp = price + (risk * 1.2) # High-probability 1.2R target
+                    sl_dist = max(atr * 1.5, price * 0.012)  # Dynamic ATR Stop Loss (min 1.2% buffer)
+                    entry_p = price * (1 + leg_cost)
+                    sl = entry_p - sl_dist
+                    risk = entry_p - sl
+                    tp = entry_p + (risk * 1.5) # Institutional 1.5R target
                     
                     trade_entry = {
                         "time": ts,
-                        "price": price * (1 + roundtrip_cost_pct),
+                        "price": entry_p,
                         "sl": round(sl, 2),
                         "tp": round(tp, 2),
                         "risk": risk,
@@ -250,7 +252,7 @@ def backtest_intraday_scrip(symbol: str, days: int = 30, resolution: str = "15")
 
     # Setup Breakdown
     setup_stats = {}
-    for setup_type in ["VWAP_PULLBACK_BOUNCE", "ORB_SWEEP_REVERSAL", "HIGH_VOLUME_BREAKOUT"]:
+    for setup_type in ["MORNING_SWEEP_REVERSAL", "VWAP_TREND_PULLBACK", "ORB_MOMENTUM_BREAKOUT"]:
         st_trades = [t for t in trades if t["setup"] == setup_type]
         if st_trades:
             st_wins = sum(1 for t in st_trades if t["result"] == "WIN")

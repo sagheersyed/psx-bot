@@ -9,7 +9,8 @@ import numpy as np
 
 import config
 
-WEIGHTS = {"trend": 25, "momentum": 15, "flow": 15, "structure": 20, "location": 10, "mtf": 10, "valuation": 5}
+WEIGHTS = {"trend": 25, "momentum": 15, "flow": 15, "structure": 20, "location": 10, "mtf": 10, "valuation": 5,
+           "regime": 15}   # regime = beta-weighted KSE-100/sector trend (psx/regime.py); None ho to skip
 
 STRUCT_VALUE = {
     "BULLISH_BOS": 0.8, "BULLISH_CHOCH": 0.6, "BULLISH_STRUCTURE": 0.6, "RANGE_BOUND": 0.0, "CONSOLIDATION": 0.0,
@@ -26,7 +27,7 @@ def _sgn(x):
     return 1.0 if x > 0 else -1.0 if x < 0 else 0.0
 
 
-def compute_factors(d, smc: dict, price: float, mtf_alignment=None, pb=None, eps=None) -> dict:
+def compute_factors(d, smc: dict, price: float, mtf_alignment=None, pb=None, eps=None, regime=None) -> dict:
     """d = add_indicators(completed daily df). mtf_alignment / pb None ho to factor skip hota hai."""
     last, prev5 = d.iloc[-1], d.iloc[-6] if len(d) > 6 else d.iloc[0]
     atr = float(last["atr"]) or price * 0.02
@@ -73,12 +74,19 @@ def compute_factors(d, smc: dict, price: float, mtf_alignment=None, pb=None, eps
         if eps is not None and eps < 0:
             v -= 0.5
         f["valuation"] = _clip(v)
+    if regime is not None:
+        f["regime"] = _clip(regime)
     return f
 
 
 def total_score(factors: dict) -> float:
-    w = sum(WEIGHTS[k] for k in factors)
-    return round(100 * sum(WEIGHTS[k] * v for k, v in factors.items()) / w, 1) if w else 0.0
+    """Baqi factors ka normalised average; 'regime' alag se ADD hota hai (max +-WEIGHTS['regime'] points),
+    taake index se azad stock (regime ~ 0) ka score bilkul na badle - sirf index-linked stocks par asar."""
+    base = {k: v for k, v in factors.items() if k != "regime"}
+    w = sum(WEIGHTS[k] for k in base)
+    score = 100 * sum(WEIGHTS[k] * v for k, v in base.items()) / w if w else 0.0
+    score += WEIGHTS["regime"] * factors.get("regime", 0.0)
+    return round(_clip(score, -100.0, 100.0), 1)
 
 
 def confidence(factors: dict, score: float, n_bars: int, low_liquidity=False, mtf_conflict=False) -> int:
@@ -86,8 +94,9 @@ def confidence(factors: dict, score: float, n_bars: int, low_liquidity=False, mt
     sg = _sgn(score)
     if sg == 0:
         return 20
-    w_tot = sum(WEIGHTS[k] for k, v in factors.items() if v != 0) or 1
-    agree = sum(WEIGHTS[k] for k, v in factors.items() if _sgn(v) == sg) / w_tot
+    core = {k: v for k, v in factors.items() if k != "regime"}   # regime score mein hai, agreement mein nahi
+    w_tot = sum(WEIGHTS[k] for k, v in core.items() if v != 0) or 1
+    agree = sum(WEIGHTS[k] for k, v in core.items() if _sgn(v) == sg) / w_tot
     strength = min(1.0, abs(score) / 60)
     q = 1.0 if n_bars >= 200 else 0.9 if n_bars >= 100 else 0.75 if n_bars >= 60 else 0.5
     c = 100 * (0.6 * agree + 0.4 * strength) * q
@@ -169,6 +178,7 @@ def decide(score: float, smc: dict, d_status: str, micro_bearish: bool) -> tuple
 def explain(factors: dict, n: int = 3) -> str:
     names = {"trend": "Trend (EMAs)", "momentum": "Momentum (RSI/MACD)", "flow": "Money flow (CMF/OBV)",
              "structure": "Market structure", "location": "Price location (discount/premium)",
-             "mtf": "Multi-timeframe alignment", "valuation": "Valuation"}
+             "mtf": "Multi-timeframe alignment", "valuation": "Valuation",
+             "regime": "Market/sector regime"}
     ranked = sorted(factors.items(), key=lambda kv: abs(WEIGHTS[kv[0]] * kv[1]), reverse=True)[:n]
     return ", ".join(f"{names[k]} {'↑' if v > 0 else '↓' if v < 0 else '→'}" for k, v in ranked if v != 0) or "koi factor nahi"

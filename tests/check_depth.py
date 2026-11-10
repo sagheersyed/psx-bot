@@ -1,6 +1,9 @@
 import sys
+from pathlib import Path
+
 sys.stdout.reconfigure(encoding='utf-8')
-with open(r'd:\bot\web\templates\index.html', 'r', encoding='utf-8') as f:
+html_path = Path(__file__).resolve().parent.parent / "web" / "templates" / "index.html"
+with open(html_path, 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
 depth = 0

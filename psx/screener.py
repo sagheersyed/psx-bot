@@ -9,7 +9,7 @@ from . import analyzer
 
 # Top PSX liquid symbols across E&P, Tech, Cement, Fertilizer, Power, Refinery, Banking
 SCREENER_SYMBOLS = [
-    "OGDC", "PPL", "MARI", "SYS", "LUCK", "ENGRO", "FFC", "HUBC", 
+    "OGDC", "PPL", "MARI", "SYS", "LUCK", "ENGROH", "FFC", "HUBC", 
     "HBL", "MCB", "UBL", "TRG", "CNERGY", "PRL", "WTL", "SINDM", 
     "MACFL", "PAEL", "ATRL", "PSO", "DGKC", "FCCL", "EFERT", "SEARL"
 ]

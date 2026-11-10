@@ -22,7 +22,7 @@ def gates(df, price: float, ldcp: float) -> dict:
 
 
 def evaluate(df_done, price: float | None = None, ldcp: float | None = None, mtf_alignment=None,
-             pb=None, eps=None, micro_bearish=False) -> dict:
+             pb=None, eps=None, micro_bearish=False, regime=None) -> dict:
     """df_done = COMPLETED daily candles (adhoori aaj ki candle nahi)."""
     price = float(price if price else df_done["close"].iloc[-1])
     if ldcp is None:
@@ -31,7 +31,7 @@ def evaluate(df_done, price: float | None = None, ldcp: float | None = None, mtf
     smc = analyze_smc(df_done, price)
     g = gates(df_done, price, ldcp)
 
-    factors = scoring.compute_factors(d, smc, price, mtf_alignment, pb, eps)
+    factors = scoring.compute_factors(d, smc, price, mtf_alignment, pb, eps, regime)
     score = scoring.total_score(factors)
     d_status = "BULLISH" if factors["trend"] > 0.5 else "BEARISH" if factors["trend"] < -0.5 else "MIXED"
     mtf_conflict = mtf_alignment is not None and np.sign(mtf_alignment) * np.sign(score) < 0 and abs(mtf_alignment) > 0.2
